@@ -13,13 +13,13 @@ Synopsis:
 Description:
 
   Bitstream is a library for efficient handling of streams of bits. It
-  handles various stream targets including big-arrays, endianess,
-  aligment, efficient padding, buffering, non-blocking IO through Lwt
-  or Async, buffer resizing, allows to choose between functional and
-  imperative implementation, with or without exceptions, includes
-  monadic interface, is functorised to allow customisations and is
-  distributed as a single packed module that does not dependd on
-  anything.
+  handles: various stream targets including big-arrays and growing
+  structures, endianess, aligment, efficient padding, buffering,
+  non-blocking IO through Lwt or Async, buffer resizing, allows to
+  choose between functional and imperative implementation, with or
+  without exceptions, includes monadic interface, is functorised to
+  allow customisations and is distributed as a single packed module
+  that does not dependd on anything.
   .
   The library can be used to implement audio or video streaming,
   network protocols, JIT compiler, backend for binary parser,
