@@ -1,0 +1,50 @@
+#                                                                   -*- conf -*-
+OASISFormat:  0.3
+OCamlVersion: >= 3.12
+Name:         bitstream
+Version:      0.0.0
+Authors:      Wojciech Meyer
+License:      LGPL
+
+Synopsis:
+
+  Efficient bit streams for OCaml.
+
+Description:
+
+  Bitstream is a library for efficient handling of streams of bits. It
+  handles various stream targets including big-arrays, endianess,
+  aligment, efficient padding, buffering, non-blocking IO through Lwt
+  or Async, buffer resizing, allows to choose between functional and
+  imperative implementation, with or without exceptions, includes
+  monadic interface, is functorised to allow customisations and is
+  distributed as a single packed module that does not dependd on
+  anything.
+  .
+  The library can be used to implement audio or video streaming,
+  network protocols, JIT compiler, backend for binary parser,
+  instruction decoder or encoder, compressor/decompressor, etc.
+
+Plugins:     META (0.3), StdFiles (0.3)
+BuildTools:  ocamlbuild
+
+Library "bitstream-lib"
+  Path:                 src
+  Modules:              Bitstream
+  BuildTools:           ocamlbuild
+  FindlibName:          bitstream
+  XMETAType:            library
+  XMETAEnable:          true
+  XMETADescription:     Efficient bit streams for OCaml
+  ByteOpt:              -for-pack Bitstream
+  NativeOpt:            -for-pack Bitstream
+
+Document "bitstream-api"
+  Title:                API reference for Bitstream
+  Type:                 ocamlbuild (0.3)
+  Install:              true
+  InstallDir:           $htmldir/api
+  DataFiles:            utils/style.css
+  BuildTools:           ocamldoc
+  XOCamlbuildPath:      ./
+  XOCamlbuildLibraries: bitstream
