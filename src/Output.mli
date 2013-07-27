@@ -16,8 +16,9 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
   --------------------------------------------------------------------------*)
 
-module Imperative (I : Sig.OTARGET_IMP with type block = int) : Sig.O_IMP
-  with type target = I.target
+module Imperative (I : Sig.OTARGET_IMP
+                   with type block = int)
+  : Sig.O_IMP with type target = I.target
 
 
 (* module Exceptionless : sig *)

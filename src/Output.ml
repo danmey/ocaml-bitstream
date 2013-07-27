@@ -32,79 +32,73 @@ module Imperative (I : Sig.OTARGET_IMP
 
   let endianess = `Little
 
+  let buffer_size = 1
+
+  (* After long hesistation came to conlusion maybe a simple
+     amortised implementation with Int64.t would be better *)
   type t = { buffer : I.t;
-             mutable pending : I.block;
-             mutable bit : int; }
+             mutable size : int;
+             mutable bitfields : bitfield list;
+             mutable pending : bitfield }
+  and bitfield = bitsize * I.block
+  and bitsize = int
 
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 (* |                            Implementation                             | *)
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 
+  let update s =
+    let bitfields = List.rev s.bitfields in
+    s.bitfields <- [];
+    s.size <- 0;
+    s.pending <-
+      List.fold_left
+      (fun (size, bits) (bitsize, bitfield) ->
+        if size + bitsize >= I.block_size then
+      g    let size' = I.block_size - size in
+          let bitfield' = I.upper size' bitfield in
+          let bits = I.concat size' bits bitfield' in
+          I.put s.buffer bits;
+          size + bitsize - I.block_size, bits
+        else size+bitsize, I.concat bitsize bits bitfield)
+      s.pending bitfields
+
   let create size =
     { buffer = I.create size;
-      pending = 0;
-      bit = 0; }
+      size = 0;
+      pending = 0, I.off;
+      bitfields = [] }
 
   let contents s = I.contents s.buffer
 
-  let update s =
-    I.put s.buffer s.pending;
-    s.bit <- 0;
-    s.pending <- 0
+  let append s n v =
+    s.bitfields <- (n, v) :: s.bitfields;
+    s.size <- s.size+1;
+    if s.size >= buffer_size then update s
 
   let bit s b =
-    s.pending <- (s.pending lsl 1) lor (if b then 1 else 0);
-    s.bit <- s.bit+1;
-    if s.bit >= I.block_size then begin
-      I.put s.buffer s.pending;
-      update s;
-    end
+    append s 1 (if b then I.on else I.off)
 
-  (* FIXME: Should be functorised *)
-  let mask v = v land (1 lsl I.block_size - 1)
+  let flush s =
+    let size, block = s.pending in
+    s.pending <- (0, I.off);
+    let left = I.block_size - size in
+    if left <> 0 then
+      I.flush s.buffer size block
+    else update s
 
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-(* |                            Generate masks                             | *)
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-
-  let masks =
-    let a = Array.make Nativeint.size 0 in
-    Array.iteri (fun i _ -> a.(i) <- (1 lsl i) - 1) a;
-    a
-
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-(* |                              Slice bits                               | *)
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-
-  let bit_slice l n v = (v lsr l) land masks.(n)
 
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 (* |                              Push n bits                              | *)
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 
-  let bits s n v =
-    let rec loop n =
-      let left_bits = I.block_size - s.bit in
-      let insert_bits = min n left_bits in
-      let pending_bits = n - insert_bits in
-      s.pending <- s.pending lsl left_bits;
-      if pending_bits = 0
-      then s.pending <- s.pending lor (bit_slice 0 insert_bits v)
-      else begin
-        s.pending <- s.pending lor (bit_slice pending_bits s.bit v);
-        update s;
-        loop pending_bits
-      end
-    in
-    loop n
-
-  let many_bits _ _ _ = ()
+  let bits s n v = append s n v
+  let many_bits s n v = ()
   let nibble _ _ = ()
   let byte _ _ = ()
   let word _ _ = ()
   let dword _ _ = ()
   let qword _ _ = ()
-  let flush _ = ()
   let bool _ _ = ()
   let int32 _ _ = ()
   let int64 _ _ = ()

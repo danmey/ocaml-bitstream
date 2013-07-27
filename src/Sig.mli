@@ -16,11 +16,12 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
   --------------------------------------------------------------------------*)
 
-(** Module [Sig]: Signatures for used in whole library. *)
+(** Module [Sig]: Signatures used in the whole library. *)
 
 (** {1 Endianess} *)
 
-type endianess =  [ `Big | `Little ]
+type endianess =  [ `Big | `Little | `System ]
+(** [`System] indicates endianess detected at compile time *)
 
 (** {2 Common types } *)
 
@@ -56,10 +57,14 @@ module type OTARGET_IMP = sig
   (** [create ()] creates target with initial state [t] *)
   val put : t -> block -> unit
   (** [put t b] puts a block in the stream *)
-  val flush : t -> unit
-  (** [flush t] flushes the target writing all the pending bits *)
   val contents : t -> target
   (** [contents t] gets the raw buffer *)
+  val concat : int -> block -> block -> block
+  val upper : int -> block -> block
+  val flush : t -> int -> block -> unit
+  val on : block
+  val off : block
+  val block_size : int
 end
 
 module type ITARGET_IMP = sig

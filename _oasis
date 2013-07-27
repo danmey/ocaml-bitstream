@@ -4,7 +4,7 @@ OCamlVersion: >= 3.12
 Name:         bitstream
 Version:      0.0.0
 Authors:      Wojciech Meyer
-License:      LGPL
+License:      BSD3
 
 Synopsis:
 

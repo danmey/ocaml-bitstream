@@ -24,9 +24,14 @@ module type IMPL = sig
   type block
   type buffer
   val block_size : int
-  val store : buffer -> int -> int -> block -> int
+  val store : buffer -> int -> block -> int
+  val store_n : buffer -> int -> block -> int -> int
   val create : int -> buffer
   val blit : buffer -> buffer -> int -> unit
+  val concat : int -> block -> block -> block
+  val upper : int -> block -> block
+  val on : block
+  val off : block
 end
 
 module Make (I : IMPL) : Sig.OTARGET_IMP
@@ -41,6 +46,10 @@ module Make (I : IMPL) : Sig.OTARGET_IMP
   and block = I.block
 
   let block_size = I.block_size
+  let concat = I.concat
+  let upper = I.upper
+  let on = I.on
+  let off = I.off
 
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 (* |                       Create stream from string                       | *)
@@ -53,18 +62,32 @@ module Make (I : IMPL) : Sig.OTARGET_IMP
 
   let contents s = s.buffer
 
-  let put state block =
+  let resize state size =
+    let buffer' = I.create size in
+    let blit_size = min state.size size in
+    I.blit state.buffer buffer' blit_size;
+    state.buffer <- buffer';
+    state.size <- size
+
+  let resize_if_needed state =
     if state.size - state.pos < block_size lsr 3 then
       begin
-        let size' = (if state.size = 0 then 1 else state.size) * 2 in
-        let buffer' = I.create size' in
-        I.blit state.buffer buffer' state.size;
-        state.buffer <- buffer';
-        state.size <- size'
-      end;
-    state.pos <- I.store state.buffer state.pos state.size block
+        let size' =
+          (if state.size = 0
+           then block_size lsr 3
+           else state.size) * 2
+        in
+        resize state size'
+      end
 
-  let flush state = ()
+  let put state block =
+    resize_if_needed state;
+    state.pos <- I.store state.buffer state.pos block
+
+  let flush state count block =
+    resize_if_needed state;
+    state.pos <- I.store_n state.buffer state.pos block count;
+    resize state state.pos
 
 end
 
@@ -80,37 +103,30 @@ module type BUFFER = sig
 end
 
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
-(* |                       For 32 bit architectures                        | *)
+(* |                     64 bit integer implementation                     | *)
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
 
-module Impl32(B : BUFFER with type block = int) : IMPL
-  with type block = int
-  and type buffer = B.buffer
-  = struct
-    include B
-    let block_size = 16
-    let store str pos size block =
-      B.set str pos (block lsr 8);
-      B.set str (pos+1) block;
-      pos+2
-  end
-
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-(* |                        For 64 bit architectues                        | *)
-(* +=====~~~-------------------------------------------------------~~~=====+ *)
-
-module Impl64(B : BUFFER with type block = int) : IMPL
+module ByteImpl(B : BUFFER with type block = int) : IMPL
   with type block = int
   and type buffer = B.buffer
 = struct
   include B
-  let block_size = 32
-  let store str pos size block =
-    B.set str (pos+0) (block lsr 24);
-    B.set str (pos+1) (block lsr 16);
-    B.set str (pos+2) (block lsr 8);
-    B.set str (pos+3) block;
-    pos+4
+
+  let block_size = 8
+
+  let concat size v1 v2 = (v1 lsl size) lor v2
+  let upper size v = v lsl (block_size - size)
+
+  let off = 0
+  let on = 1
+
+  let store str pos byte =
+    B.set str pos byte;
+    pos+1
+
+  let store_n str pos byte c =
+    B.set str pos byte;
+    pos+1
 end
 
 (* +=====~~~-------------------------------------------------------~~~=====+ *)
@@ -122,10 +138,13 @@ module StringB : BUFFER
   and type block = int = struct
   type buffer = string
   and block = int
-  let set str pos block = String.set str pos (Char.chr (block land 0xFF))
+  let set str pos block =
+    String.set str pos
+      (Char.chr
+            (block land 0xFF))
   let blit str str' size = String.blit str 0 str' 0 size
   let create = String.create
 end
 
-module String32 = Make(Impl32(StringB))
-module String64 = Make(Impl64(StringB))
+(* module String32 = Make(Impl32(StringB)) *)
+module String64 = Make(ByteImpl(StringB))
